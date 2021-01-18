@@ -1,7 +1,8 @@
 <?php
   header('Content-Type: application/json');
+  $result=new stdClass();
 
-  if($_SERVER["CONTENT_TYPE"] != 'application/json') {
+  if(isset($_SERVER["CONTENT_TYPE"]) && $_SERVER["CONTENT_TYPE"] != 'application/json') {
     $result->ret = 'err';
     $result->description = 'Unsupported content-type';
     http_response_code(400);

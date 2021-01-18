@@ -2,14 +2,12 @@
 class Api {
 
   public function __construct() {
-    $this->sqlite = new PDO('apidb.sqlite3');
-    $this->sqlite->enableExceptions(true);
+    $this->sqlite = new PDO("sqlite:apidb.sqlite3");
     $dbstructure=file_get_contents('../db.sql');
     $this->sqlite->exec($dbstructure);
   }
 
   public function __destruct() {
-    $this->sqlite->close();
   }
 
   public function register() {
