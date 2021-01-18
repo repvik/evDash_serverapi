@@ -1,4 +1,4 @@
-CREATE TABLE `users` (
+CREATE TABLE IF NOT EXISTS `users` (
   `iduser` int(11) NOT NULL AUTO_INCREMENT,
   `apikey` varchar(12) NOT NULL,
   `IP` varchar(16) DEFAULT NULL,
@@ -8,7 +8,7 @@ CREATE TABLE `users` (
   KEY `apikey` (`apikey`)
 );
 
-CREATE TABLE `data` (
+CREATE TABLE IF NOT EXISTS `data` (
   `iddata` int(11) NOT NULL AUTO_INCREMENT,
   `user` int(11) NOT NULL,
   `timestamp` datetime NOT NULL DEFAULT current_timestamp(),

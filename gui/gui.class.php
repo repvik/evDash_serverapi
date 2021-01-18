@@ -1,65 +1,39 @@
 <?php
 class Gui {
-	private $mysqli;
-
 	public function __construct() {
-		require('config.php');
-
-		$this->mysqli = new mysqli($dbhost, $dbname, $dbpass, $dbname);
-
-		if($this->mysqli->connect_error) {
-		  throw new Exception('Error connecting to MySQL: '.$this->mysqli->connect_error);
-		}
+		$this->sqlite = new PDO('apidb.sqlite3');
+		$this->sqlite->enableExceptions(true);
+		$dbstructure=file_get_contents('../db.sql');
+		$this->sqlite->exec($dbstructure);
 	}
 
 	public function __destruct() {
-		$this->mysqli->close();
+		$this->sqlite->close();
 	}
 
 	public function signIn($apikey) {
-	    $query = $this->mysqli->prepare("SELECT `iduser` FROM `users` WHERE `apikey` =  ?");
-	    $query->bind_param('s', $apikey);
-
-		if($query->execute()) {
-			$query->bind_result($iduser);
-			$query->fetch();
-
-			if($iduser) {
-				return $iduser;
-			}
-		}
-
-	    return false;
+		$query=$this->sqlite->prepare("SELECT `iduser` FROM `users` WHERE `apikey` = :apikey");
+		$query->execute(array("apikey" => $apikey));
+		$iduser=$query->fetchColumn();
+	    return($iduser);
 	}
 
 	public function getLastRecord($uid) {
-		$query = $this->mysqli->prepare("SELECT `timestamp`, `carType`, `socPerc`, `sohPerc`, `batPowerKw`, `batPowerAmp`, `batVoltage`, `auxVoltage`, `batMinC`, `batMaxC`, `batInletC`, `batFanStatus`, `cumulativeEnergyChargedKWh`, `cumulativeEnergyDischargedKWh` FROM `data` WHERE `user` = ? ORDER BY `timestamp` DESC LIMIT 1");
-
-		$query->bind_param('i', $uid);
-
-		if($query->execute()) {
-			return $query->get_result()->fetch_object();      
-		}
+		$query=$this->sqlite->prepare("SELECT * FROM DATA WHERE `user` = :user ORDER BY `timestamp` DESC LIMIT 1");
+		$query->execute(array("user" => $uid));
+		return($query->fetch(PDO::FETCH_OBJ));
 	}
 
 	public function getSettings($uid) {
-		$query = $this->mysqli->prepare("SELECT `timezone`, `notifications` FROM `users` WHERE `iduser` = ?");
-		$query->bind_param('i', $uid);
-
-		if($query->execute()) {
-			return $query->get_result()->fetch_object();      
-		}
+		$query=$this->sqlite->prepare("SELECT `timezone`, `notifications` FROM `users` WHERE `iduser` = :user");
+		$query->execute(array("user" => $uid));
+		return($query->fetch(PDO::FETCH_OBJ));
 	}
 
 	public function setSettings($uid, $timezone, $notifications) {
-	    $query = $this->mysqli->prepare("UPDATE `users` SET `timezone` = ?, `notifications` = ? WHERE `iduser` = ?");
-	    $query->bind_param('sii', $timezone, $uid, $notifications);
-
-	    if($query->execute()) {
-	      return true;
-	    } else {
-	      return false;
-	    }
+		$query=$this->sqlite->prepare("UPDATE `users` SET `timezone` = :tz, `notifications` = :notifications WHERE `iduser` = :user");
+		$ret=$query->execute(array(":tz" => $timezone, "notifications" => $notifications, "user" => $uid));
+		return($ret);
 	}
 }
 ?>

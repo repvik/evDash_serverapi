@@ -1,28 +1,21 @@
 <?php
 class Api {
-  private $mysqli;
 
   public function __construct() {
-    require('config.php');
-
-    $this->mysqli = new mysqli($dbhost, $dbname, $dbpass, $dbname);
-    
-    if($this->mysqli->connect_error) {
-      throw new Exception('Error connecting to MySQL: '.$this->mysqli->connect_error);
-    }
+    $this->sqlite = new PDO('apidb.sqlite3');
+    $this->sqlite->enableExceptions(true);
+    $dbstructure=file_get_contents('../db.sql');
+    $this->sqlite->exec($dbstructure);
   }
 
   public function __destruct() {
-    $this->mysqli->close();
+    $this->sqlite->close();
   }
 
   public function register() {
     $apikey = substr(uniqid(), 0, 12);
-
-    $query = $this->mysqli->prepare("INSERT INTO `users` (`apikey`, `IP`) VALUES (?, ?)");
-    $query->bind_param('ss', $apikey, $_SERVER['REMOTE_ADDR']);
-    
-    if($query->execute()) {
+    $query=$this->sqlite->prepare("INSERT INTO `users` (`apikey`, `IP`) VALUES (:apikey, :ip)");
+    if($query->execute(array("apikey"=>$apikey, "ip" => $_SERVER['REMOTE_ADDR']))) {
       return $apikey;
     } else {
       return false;
@@ -30,18 +23,11 @@ class Api {
   }
 
   public function getApiKeyUser($apikey) {
-    $query = $this->mysqli->prepare("SELECT `iduser` FROM `users` WHERE `apikey` =  ?");
-    $query->bind_param('s', $apikey);
-
-    if($query->execute()) {
-      $query->bind_result($iduser);
-      $query->fetch();
-
-      if($iduser) {
-        return $iduser;
-      }
+    $query=$this->sqlite->prepare("SELECT `iduser` FROM `users` WHERE `apikey` =  :apikey");
+    if($query->execute(array("apikey" => $apikey))) {
+      $result=$query->fetchColumn();
+      return($result);
     }
-
     return false;
   }
 
@@ -49,39 +35,36 @@ class Api {
     if(!$iduser = $this->getApiKeyUser($json->apikey)) {
       return false; 
     }
-
-    $query = $this->mysqli->prepare("INSERT INTO `data` (`user`, `IP`, `carType`, `ignitionOn`, `chargingOn`, `socPerc`, `sohPerc`, `batPowerKw`, `batPowerAmp`, `batVoltage`, `auxVoltage`, `auxAmp`, `batMinC`, `batMaxC`, `batInletC`, `batFanStatus`, `speedKmh`, `odoKm`, `cumulativeEnergyChargedKWh`, `cumulativeEnergyDischargedKWh`, `gpsLat`, `gpsLon`, `gpsAlt`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    $query->bind_param('isiiidddddddddddddddddd', $iduser, $_SERVER['REMOTE_ADDR'], $json->carType, $json->ignitionOn, $json->chargingOn, $json->socPerc, $json->sohPerc, $json->batPowerKw, $json->batPowerAmp, $json->batVoltage, $json->auxVoltage, $json->auxAmp, $json->batMinC, $json->batMaxC, $json->batInletC, $json->batFanStatus, $json->speedKmh, $json->odoKm, $json->cumulativeEnergyChargedKWh, $json->cumulativeEnergyDischargedKWh, $json->gpsLat, $json->gpsLon, $json->gpsAlt);
-
-    if($query->execute()) {
-      return true;
-    } else {
-      return false;
-    }
+    $query = $this->sqlite->prepare("INSERT INTO `data` (`user`, `IP`, `carType`, `ignitionOn`, `chargingOn`, `socPerc`, `sohPerc`, `batPowerKw`, `batPowerAmp`, 
+                                    `batVoltage`, `auxVoltage`, `auxAmp`, `batMinC`, `batMaxC`, `batInletC`, `batFanStatus`, `speedKmh`, `odoKm`, 
+                                    `cumulativeEnergyChargedKWh`, `cumulativeEnergyDischargedKWh`, `gpsLat`, `gpsLon`, `gpsAlt`) 
+                                    VALUES (:user, :ip, :cartype, :ignitionon, :chargingon, :socperc, :sohperc, :batpowerkw, :batpoweramp, 
+                                    :batvoltage, :auxvoltage, :auxamp, :batminc, :batmaxc, :batinletc, :batfanstatus, :speedkmh, :odokm,
+                                    :cumulativeenergychargedkwh, :cumulativeenergydischargedkwh, :gpslat, :gpslon, :gpsalt)");
+    $val=$query->execute(array("user" => $iduser, "ip" => $_SERVER['REMOTE_ADDR'], "cartype" => $json->carType, "ignitionon" => $json->ignitionOn, "chargingon" => $json->chargingOn,
+                          "socperc" => $json->socPerc, "sohperc" => $json->sohPerc, "batpowerkw" => $json->batPowerKw, "batpoweramp" => $json->batPowerAmp, 
+                          "batvoltage" => $json->batVoltage, "auxvoltage" => $json->auxVoltage, "auxamp" => $json->auxAmp, "batminc" => $json->batMinC, 
+                          "batmaxc" => $json->batMaxC, "batinletc" => $json->batInletC, "batfanstatus" => $json->batFanStatus, "speedkmh" => $json->speedKmh, 
+                          "odokmh" => $json->odoKm, "cumulativeenergychargedkwh" => $json->cumulativeEnergyChargedKWh, "cumulativeenergydischargedkwh" => $json->cumulativeEnergyDischargedKWh,
+                          "gpslat" => $json->gpsLat, "gpslon" => $json->gpsLon, "gpsalt" => $json->gpsAlt));
+    return($val);
   }
 
   public function getVals($json) {
     if(!$iduser = $this->getApiKeyUser($json->apikey)) {
       return false;
     }
-
-    if(isset($json->timestampFrom) && isset($json->timestampTo)) {
-      $query = $this->mysqli->prepare("SELECT `timestamp`, `carType`, `ignitionOn, `chargingOn`, `socPerc`, `sohPerc`, `batPowerKw`, `batPowerAmp`, `batVoltage`, `auxVoltage`, `auxAmp`, `batMinC`, `batMaxC`, `batInletC`, `batFanStatus`, `speedKmh`, `odoKm`. `cumulativeEnergyChargedKWh`, `cumulativeEnergyDischargedKWh`, `gpsLat`, `gpsLon`, `gpsAlt` FROM `data` WHERE `user` = ? AND `timestamp` >= ? AND `timestamp` <= ? ORDER BY `timestamp`");
-      $query->bind_param('iss', $iduser, $json->timestampFrom, $json->timestampTo);
+    if (!isset($json->timestampTo)) $json->timestampTo=date("Y-m-d H:i:s");
+    if (isset($json->timestampFrom)) {
+      $query=$this->sqlite->prepare("SELECT * FROM `data` WHERE `user` = :user AND `timestamp` >= :timestampfrom AND `timestamp` <= :timestampto ORDER BY `timestamp`");
+      $query->execute(array("timestampfrom" => $json->timestampFrom, "timestampto" => $json->timestampTo));
     } else {
-      $query = $this->mysqli->prepare("SELECT `timestamp`, `carType`, `ignitionOn`, `chargingOn`, `socPerc`, `sohPerc`, `batPowerKw`, `batPowerAmp`, `batVoltage`, `auxVoltage`, `auxAmp`, `batMinC`, `batMaxC`, `batInletC`, `batFanStatus`, `speedKmh`, `odoKm`, `cumulativeEnergyChargedKWh`, `cumulativeEnergyDischargedKWh`, `gpsLat`, `gpsLon`, `gpsAlt` FROM `data` WHERE `user` = ? ORDER BY `timestamp` DESC LIMIT 1");
-      $query->bind_param('i', $iduser);
+      $query=$this->sqlite->prepare("SELECT * FROM `data` WHERE `user` = :user ORDER BY `timestamp` DESC LIMIT 1");
+      $query->execute(array(":user" => $iduser));
     }
-
-    if($query->execute()) {
-      $result = $query->get_result();
-      $return = array();
-      while ($obj = $result->fetch_object()) {
-        $return[] = $obj;
-      }
-      return $return;
-    }
+    $return=array();
+    while ($row=$query->fetch(PDO::FETCH_OBJ)) $return[]=$row;
+    return($return);
   }
-
 }
 ?>
