@@ -2,8 +2,8 @@
 class Api {
 
   public function __construct() {
-    $this->sqlite = new PDO("sqlite:apidb.sqlite3");
-    $dbstructure=file_get_contents('../db.sql');
+    $this->sqlite = new PDO("sqlite:../data/apidb.sqlite3");
+    $dbstructure=file_get_contents('../data/db.sql');
     $this->sqlite->exec($dbstructure);
   }
 
